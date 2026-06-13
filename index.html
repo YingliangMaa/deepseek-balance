@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="DS余额">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0f0f1a">
+<meta name="description" content="实时查看 DeepSeek API 余额">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>DeepSeek 余额</title>
+<style>
+  :root {
+    --bg: #0f0f1a;
+    --card-bg: #1a1a2e;
+    --accent: #42b883;
+    --accent2: #3477e3;
+    --text: #e0e0e0;
+    --sub: #888;
+    --danger: #e74c3c;
+    --warn: #f39c12;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+    background: var(--bg);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: 20px;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
+    overflow: hidden;
+  }
+
+  .bg-glow {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.12;
+    pointer-events: none;
+  }
+  .bg-glow.g1 { width: 200px; height: 200px; background: var(--accent); top: -50px; left: -50px; }
+  .bg-glow.g2 { width: 180px; height: 180px; background: var(--accent2); bottom: -60px; right: -60px; }
+
+  .widget {
+    position: relative;
+    background: var(--card-bg);
+    border-radius: 28px;
+    padding: 28px 24px 20px;
+    width: 100%;
+    max-width: 360px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.06), inset 0 1px 0 rgba(255,255,255,0.04);
+    animation: fadeIn 0.4s ease;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .header {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 24px;
+  }
+
+  .logo {
+    width: 44px; height: 44px; border-radius: 14px;
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; font-weight: 900; color: var(--accent);
+    box-shadow: 0 4px 12px rgba(66,184,131,0.2);
+  }
+
+  .title-group { flex: 1; }
+  .title { font-size: 17px; font-weight: 700; color: var(--text); letter-spacing: 0.3px; }
+  .subtitle { font-size: 12px; color: var(--sub); margin-top: 2px; }
+
+  .refresh-badge {
+    font-size: 11px; color: var(--accent); background: rgba(66,184,131,0.1);
+    padding: 5px 10px; border-radius: 20px; white-space: nowrap;
+  }
+
+  .balance-card {
+    background: linear-gradient(135deg, #16213e 0%, #1a2744 100%);
+    border-radius: 20px; padding: 28px 20px 24px; text-align: center;
+    position: relative; overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    cursor: pointer; transition: transform 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .balance-card:active { transform: scale(0.98); }
+  .balance-card::before {
+    content: ''; position: absolute; top: -30px; right: -30px;
+    width: 100px; height: 100px;
+    background: radial-gradient(circle, rgba(66,184,131,0.15) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+  .balance-card::after {
+    content: '点击刷新';
+    position: absolute; bottom: 8px; right: 14px;
+    font-size: 10px; color: rgba(255,255,255,0.12);
+  }
+
+  .balance-label {
+    font-size: 13px; color: var(--sub); text-transform: uppercase;
+    letter-spacing: 1.5px; margin-bottom: 8px;
+  }
+
+  .balance-amount {
+    font-size: 52px; font-weight: 800; color: #fff;
+    letter-spacing: -2px; line-height: 1; transition: all 0.3s ease;
+    font-variant-numeric: tabular-nums;
+  }
+  .balance-amount.updated { animation: pulse 0.6s ease; }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); color: var(--accent); }
+  }
+
+  .balance-currency { font-size: 18px; font-weight: 400; color: var(--sub); margin-left: 4px; }
+
+  .details {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 18px;
+  }
+  .detail-item {
+    background: rgba(255,255,255,0.03); border-radius: 12px; padding: 10px; text-align: center;
+  }
+  .detail-value { font-size: 15px; font-weight: 600; color: #ccc; }
+  .detail-label { font-size: 10px; color: var(--sub); margin-top: 3px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  .status-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 18px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.05);
+  }
+  .status-dot {
+    width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 6px;
+  }
+  .status-dot.ok { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+  .status-dot.err { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
+
+  .status-text { font-size: 11px; color: var(--sub); }
+  .countdown { font-size: 11px; color: var(--sub); font-variant-numeric: tabular-nums; }
+
+  .widget.low-balance .balance-amount { color: var(--warn); }
+  .widget.critical-balance .balance-amount { color: var(--danger); animation: blink 1s infinite; }
+  @keyframes blink { 50% { opacity: 0.5; } }
+
+  /* 离线提示 */
+  .offline-banner {
+    display: none;
+    text-align: center; padding: 8px; font-size: 11px;
+    background: rgba(231,76,60,0.15); color: var(--danger);
+    border-radius: 10px; margin-bottom: 12px;
+  }
+  .offline-banner.show { display: block; }
+
+  /* 设置面板 */
+  .settings-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center;
+    z-index: 100; padding: 20px; opacity: 0; pointer-events: none; transition: opacity 0.3s;
+  }
+  .settings-overlay.show { opacity: 1; pointer-events: auto; }
+
+  .settings-panel {
+    background: var(--card-bg); border-radius: 20px; padding: 24px;
+    width: 100%; max-width: 340px; box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  }
+  .settings-panel h3 { color: var(--text); margin-bottom: 16px; font-size: 16px; }
+  .settings-panel label { color: var(--sub); font-size: 12px; display: block; margin-bottom: 6px; }
+  .settings-panel input {
+    width: 100%; padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.05); color: var(--text); font-size: 14px;
+    margin-bottom: 16px; outline: none; font-family: monospace;
+  }
+  .settings-panel input:focus { border-color: var(--accent); }
+  .btn-row { display: flex; gap: 10px; }
+  .btn {
+    flex: 1; padding: 12px; border-radius: 12px; border: none; font-size: 14px;
+    font-weight: 600; cursor: pointer; transition: opacity 0.2s;
+  }
+  .btn:active { opacity: 0.7; }
+  .btn-primary { background: var(--accent); color: #000; }
+  .btn-secondary { background: rgba(255,255,255,0.08); color: var(--text); }
+
+  .gear-btn {
+    position: absolute; top: 28px; right: 24px;
+    width: 28px; height: 28px; border-radius: 50%;
+    background: rgba(255,255,255,0.04); border: none; color: var(--sub);
+    font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    z-index: 10;
+  }
+</style>
+</head>
+<body>
+<div class="bg-glow g1"></div>
+<div class="bg-glow g2"></div>
+
+<div class="widget" id="widget">
+  <button class="gear-btn" id="gear-btn" title="设置 API Key">⚙</button>
+
+  <div class="offline-banner" id="offline-banner">⚠ 网络离线 · 显示缓存数据</div>
+
+  <div class="header">
+    <div class="logo">DS</div>
+    <div class="title-group">
+      <div class="title">DeepSeek</div>
+      <div class="subtitle">API 余额</div>
+    </div>
+    <div class="refresh-badge" id="badge">⟳ 实时</div>
+  </div>
+
+  <div class="balance-card" id="balance-card">
+    <div class="balance-label">当前余额</div>
+    <div class="balance-amount" id="amount">---</div>
+    <div class="details">
+      <div class="detail-item">
+        <div class="detail-value" id="topped-up">---</div>
+        <div class="detail-label">充值余额</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-value" id="granted">---</div>
+        <div class="detail-label">赠送余额</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="status-bar">
+    <div>
+      <span class="status-dot ok" id="status-dot"></span>
+      <span class="status-text" id="status-text">已连接</span>
+    </div>
+    <span class="countdown" id="countdown">30s</span>
+  </div>
+</div>
+
+<!-- 设置面板 -->
+<div class="settings-overlay" id="settings-overlay">
+  <div class="settings-panel">
+    <h3>⚙ API 设置</h3>
+    <label>DeepSeek API Key</label>
+    <input type="password" id="api-key-input" placeholder="sk-xxxxxxxxxxxxxxxx">
+    <div class="btn-row">
+      <button class="btn btn-secondary" id="settings-cancel">取消</button>
+      <button class="btn btn-primary" id="settings-save">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ====== PWA 注册 ======
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js');
+}
+
+// 监听 PWA 显示模式
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+  || navigator.standalone
+  || document.referrer.includes('android-app://');
+
+// ====== API Key ======
+const DEFAULT_KEY = ''; // 请点击右上角 ⚙ 设置你的 API Key
+function getKey() { return localStorage.getItem('ds_api_key') || DEFAULT_KEY; }
+function saveKey(key) { localStorage.setItem('ds_api_key', key.trim()); }
+
+// ====== 缓存 ======
+let lastData = null;
+function cacheData(data) {
+  lastData = data;
+  try { localStorage.setItem('ds_balance_cache', JSON.stringify({ data, ts: Date.now() })); } catch(e) {}
+}
+function getCachedData() {
+  if (lastData) return lastData;
+  try {
+    const raw = localStorage.getItem('ds_balance_cache');
+    if (raw) { const c = JSON.parse(raw); lastData = c.data; return c.data; }
+  } catch(e) {}
+  return null;
+}
+
+// ====== UI 元素 ======
+const widget = document.getElementById('widget');
+const amountEl = document.getElementById('amount');
+const toppedUpEl = document.getElementById('topped-up');
+const grantedEl = document.getElementById('granted');
+const statusDot = document.getElementById('status-dot');
+const statusText = document.getElementById('status-text');
+const countdownEl = document.getElementById('countdown');
+const badgeEl = document.getElementById('badge');
+const offlineBanner = document.getElementById('offline-banner');
+const settingsOverlay = document.getElementById('settings-overlay');
+const apiKeyInput = document.getElementById('api-key-input');
+
+let countdown = 30;
+let countdownTimer = null;
+let oldBalance = null;
+
+// ====== 离线监测 ======
+function updateOnlineStatus() {
+  if (navigator.onLine) {
+    offlineBanner.classList.remove('show');
+  } else {
+    offlineBanner.classList.add('show');
+    // 离线时用缓存
+    const cached = getCachedData();
+    if (cached) updateUI(cached);
+  }
+}
+window.addEventListener('online', () => { updateOnlineStatus(); fetchBalance(); });
+window.addEventListener('offline', updateOnlineStatus);
+
+// ====== 设置面板 ======
+document.getElementById('gear-btn').addEventListener('click', () => {
+  apiKeyInput.value = getKey();
+  settingsOverlay.classList.add('show');
+});
+document.getElementById('settings-cancel').addEventListener('click', () => {
+  settingsOverlay.classList.remove('show');
+});
+document.getElementById('settings-save').addEventListener('click', () => {
+  const newKey = apiKeyInput.value.trim();
+  if (newKey && newKey.startsWith('sk-')) {
+    saveKey(newKey);
+    settingsOverlay.classList.remove('show');
+    fetchBalance();
+  } else {
+    alert('请输入有效的 API Key（以 sk- 开头）');
+  }
+});
+settingsOverlay.addEventListener('click', (e) => {
+  if (e.target === settingsOverlay) settingsOverlay.classList.remove('show');
+});
+
+// ====== 余额获取与显示 ======
+function fmt(v) {
+  const n = parseFloat(v);
+  return isNaN(n) ? '---' : n.toFixed(2);
+}
+
+function updateUI(data) {
+  if (data.error) {
+    amountEl.textContent = '错误';
+    statusDot.className = 'status-dot err';
+    statusText.textContent = data.error;
+    badgeEl.textContent = '✕ 离线';
+    badgeEl.style.color = '#e74c3c';
+    badgeEl.style.background = 'rgba(231,76,60,0.1)';
+    return;
+  }
+
+  const info = data.balance_infos?.[0] || {};
+  const total = parseFloat(info.total_balance) || 0;
+
+  if (oldBalance !== null && oldBalance !== total) {
+    amountEl.classList.remove('updated');
+    void amountEl.offsetWidth;
+    amountEl.classList.add('updated');
+  }
+  amountEl.innerHTML = fmt(total) + '<span class="balance-currency">CNY</span>';
+  oldBalance = total;
+
+  toppedUpEl.textContent = '¥' + fmt(info.topped_up_balance);
+  grantedEl.textContent = '¥' + fmt(info.granted_balance);
+
+  widget.classList.remove('low-balance', 'critical-balance');
+  if (total <= 1) widget.classList.add('critical-balance');
+  else if (total <= 5) widget.classList.add('low-balance');
+
+  statusDot.className = 'status-dot ok';
+  statusText.textContent = data.is_available ? '可用' : '不可用';
+  badgeEl.textContent = '⟳ 实时';
+  badgeEl.style.color = '';
+  badgeEl.style.background = '';
+}
+
+function fetchBalance() {
+  if (!navigator.onLine) {
+    const cached = getCachedData();
+    if (cached) updateUI(cached);
+    return;
+  }
+
+  badgeEl.textContent = '⟳ 刷新中...';
+  fetch('https://api.deepseek.com/user/balance', {
+    headers: { 'Authorization': `Bearer ${getKey()}` }
+  })
+    .then(r => r.json())
+    .then(data => {
+      cacheData(data);
+      updateUI(data);
+      resetCountdown();
+    })
+    .catch(err => {
+      statusDot.className = 'status-dot err';
+      statusText.textContent = '网络错误';
+      badgeEl.textContent = '✕ 重试中';
+      badgeEl.style.color = '#e74c3c';
+      badgeEl.style.background = 'rgba(231,76,60,0.1)';
+      const cached = getCachedData();
+      if (cached) updateUI(cached);
+      resetCountdown();
+    });
+}
+
+function resetCountdown() {
+  countdown = 30;
+  updateCountdown();
+  clearInterval(countdownTimer);
+  countdownTimer = setInterval(() => {
+    countdown--;
+    updateCountdown();
+    if (countdown <= 0) fetchBalance();
+  }, 1000);
+}
+
+function updateCountdown() { countdownEl.textContent = countdown + 's'; }
+
+// 点击卡片刷新
+document.getElementById('balance-card').addEventListener('click', fetchBalance);
+
+// 下拉刷新
+let touchStartY = 0;
+document.addEventListener('touchstart', e => { touchStartY = e.touches[0].clientY; }, { passive: true });
+document.addEventListener('touchend', e => {
+  if (e.changedTouches[0].clientY - touchStartY > 80 && window.scrollY === 0) fetchBalance();
+});
+
+// 页面切回时刷新
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') fetchBalance();
+});
+
+// ====== 启动 ======
+updateOnlineStatus();
+// 先显示缓存数据，再刷新
+const cached = getCachedData();
+if (cached) updateUI(cached);
+fetchBalance();
+</script>
+</body>
+</html>
